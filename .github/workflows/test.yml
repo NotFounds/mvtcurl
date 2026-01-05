@@ -27,6 +27,11 @@ jobs:
         with:
           toolchain: ${{ matrix.rust }}
 
+      - name: Install protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Cache cargo registry
         uses: actions/cache@v4
         with:
