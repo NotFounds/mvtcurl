@@ -1,7 +1,7 @@
 [package]
 name = "mvtcurl"
 version = "0.1.0"
-edition = "2026"
+edition = "2024"
 
 [dependencies]
 reqwest = { version = "0.12", features = ["blocking", "gzip"] }
@@ -13,3 +13,8 @@ anyhow = "1.0"
 
 [build-dependencies]
 prost-build = "0.13"
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
