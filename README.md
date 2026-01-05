@@ -1,5 +1,8 @@
 # mvtcurl
 
+[![Test](https://github.com/notfounds/mvtcurl/actions/workflows/test.yml/badge.svg)](https://github.com/notfounds/mvtcurl/actions/workflows/test.yml)
+[![Release](https://github.com/notfounds/mvtcurl/actions/workflows/release.yml/badge.svg)](https://github.com/notfounds/mvtcurl/actions/workflows/release.yml)
+
 `mvtcurl` は、[Mapbox Vector Tile（MVT）](https://github.com/mapbox/vector-tile-spec) 形式のデータを取得し、JSON 形式に変換する Rust 製の CLI ツールです。
 
 ## 機能
@@ -10,7 +13,25 @@
 
 ## インストール
 
-### ビルド
+### プリビルドバイナリ（推奨）
+
+[GitHub Releases](https://github.com/notfounds/mvtcurl/releases) から最新のバイナリをダウンロードできます。
+
+```bash
+# Linux (x86_64)
+curl -L https://github.com/notfounds/mvtcurl/releases/latest/download/mvtcurl-linux-x86_64.tar.gz | tar xz
+
+# macOS (Apple Silicon)
+curl -L https://github.com/notfounds/mvtcurl/releases/latest/download/mvtcurl-macos-aarch64.tar.gz | tar xz
+
+# macOS (Intel)
+curl -L https://github.com/notfounds/mvtcurl/releases/latest/download/mvtcurl-macos-x86_64.tar.gz | tar xz
+
+# Windows
+# mvtcurl-windows-x86_64.zip をダウンロードして展開
+```
+
+### ソースからビルド
 
 ```bash
 # リポジトリをクローン
