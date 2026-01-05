@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use clap::Parser;
-use mvtcurl::{fetch_mvt, mvt_to_json, PredefinedLocation, TileCoord};
+use mvtcurl::{PredefinedLocation, TileCoord, fetch_mvt, mvt_to_json};
 
 #[derive(Parser)]
 #[command(name = "mvtcurl")]
@@ -27,7 +27,11 @@ struct Cli {
     #[arg(long, help = "Use Mt. Fuji summit coordinates (requires --zoom)")]
     fuji: bool,
 
-    #[arg(short = 'H', long = "header", help = "Add custom HTTP header (format: 'Name: Value')")]
+    #[arg(
+        short = 'H',
+        long = "header",
+        help = "Add custom HTTP header (format: 'Name: Value')"
+    )]
     headers: Vec<String>,
 }
 
@@ -39,7 +43,8 @@ fn build_url(cli: &Cli) -> Result<String> {
     }
 
     let zoom = if cli.tokyo || cli.fuji {
-        cli.zoom.context("--zoom is required when using --tokyo or --fuji")?
+        cli.zoom
+            .context("--zoom is required when using --tokyo or --fuji")?
     } else {
         cli.zoom.unwrap_or(0)
     };

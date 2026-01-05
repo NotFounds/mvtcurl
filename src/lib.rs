@@ -64,7 +64,8 @@ impl LatLon {
         let n = 2_f64.powi(zoom as i32);
         let x = ((self.lon + 180.0) / 360.0 * n).floor() as u32;
         let lat_rad = self.lat.to_radians();
-        let y = ((1.0 - (lat_rad.tan() + (1.0 / lat_rad.cos())).ln() / std::f64::consts::PI) / 2.0 * n)
+        let y = ((1.0 - (lat_rad.tan() + (1.0 / lat_rad.cos())).ln() / std::f64::consts::PI) / 2.0
+            * n)
             .floor() as u32;
         TileCoord::new(zoom, x, y)
     }
@@ -134,7 +135,10 @@ pub fn fetch_mvt(url: &str, headers: &[String]) -> Result<Vec<u8>> {
             let value = parts[1].trim();
             request = request.header(name, value);
         } else {
-            anyhow::bail!("Invalid header format: '{}'. Expected 'Name: Value'", header);
+            anyhow::bail!(
+                "Invalid header format: '{}'. Expected 'Name: Value'",
+                header
+            );
         }
     }
 
@@ -198,10 +202,10 @@ fn decode_geometry(
                             if coordinates.is_empty() {
                                 coordinates.push(serde_json::json!([]));
                             }
-                            if let Some(last) = coordinates.last_mut() {
-                                if let Some(arr) = last.as_array_mut() {
-                                    arr.push(serde_json::json!([norm_x, norm_y]));
-                                }
+                            if let Some(last) = coordinates.last_mut()
+                                && let Some(arr) = last.as_array_mut()
+                            {
+                                arr.push(serde_json::json!([norm_x, norm_y]));
                             }
                         }
                         _ => {}
@@ -222,10 +226,10 @@ fn decode_geometry(
                     let norm_x = extent.normalize(x);
                     let norm_y = extent.normalize(y);
 
-                    if let Some(last) = coordinates.last_mut() {
-                        if let Some(arr) = last.as_array_mut() {
-                            arr.push(serde_json::json!([norm_x, norm_y]));
-                        }
+                    if let Some(last) = coordinates.last_mut()
+                        && let Some(arr) = last.as_array_mut()
+                    {
+                        arr.push(serde_json::json!([norm_x, norm_y]));
                     }
                 }
             }
@@ -236,9 +240,7 @@ fn decode_geometry(
 
     match geom_type {
         vector_tile::tile::GeomType::Point if coordinates.len() == 1 => coordinates[0].clone(),
-        vector_tile::tile::GeomType::Linestring if coordinates.len() == 1 => {
-            coordinates[0].clone()
-        }
+        vector_tile::tile::GeomType::Linestring if coordinates.len() == 1 => coordinates[0].clone(),
         _ => serde_json::json!(coordinates),
     }
 }
