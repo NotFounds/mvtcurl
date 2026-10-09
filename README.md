@@ -70,6 +70,13 @@ mvtcurl "https://example.com/tiles/{z}/{x}/{y}.mvt" --tokyo --zoom 14
 mvtcurl "https://example.com/tiles/{z}/{x}/{y}.mvt" --fuji --zoom 10
 ```
 
+### 緯度経度を指定
+
+```bash
+# 指定した緯度経度を含むタイルを取得（ズームレベル14）
+mvtcurl "https://example.com/tiles/{z}/{x}/{y}.mvt" --zoom 14 --latitude 35.681236 --longitude 139.767125
+```
+
 ### コンパクト出力
 
 ```bash
@@ -95,6 +102,8 @@ mvtcurl "https://example.com/tiles/14/14551/6449.mvt" \
 | `--y` | `-y` | Y座標（`{y}` プレースホルダー用） |
 | `--tokyo` | - | 東京駅の座標を使用（`--zoom` 必須） |
 | `--fuji` | - | 富士山頂上の座標を使用（`--zoom` 必須） |
+| `--latitude` | - | 緯度を指定（`--longitude`・`--zoom` 必須） |
+| `--longitude` | - | 経度を指定（`--latitude`・`--zoom` 必須） |
 | `--compact` | `-c` | コンパクトなJSON出力 |
 | `--header` | `-H` | カスタムHTTPヘッダーを追加（形式: `'Name: Value'`） |
 

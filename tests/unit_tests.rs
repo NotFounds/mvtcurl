@@ -80,3 +80,9 @@ fn test_lat_lon_new() {
     assert_eq!(latlon.lat, 35.6812);
     assert_eq!(latlon.lon, 139.7671);
 }
+
+#[test]
+fn test_latlon_to_tile_coord_clamps_max_longitude() {
+    let tile = LatLon::new(0.0, 180.0).to_tile_coord(2);
+    assert_eq!(tile, TileCoord::new(2, 3, 2));
+}

@@ -1,6 +1,9 @@
 use anyhow::{Context, Result};
 use clap::Parser;
-use mvtcurl::{PredefinedLocation, TileCoord, fetch_mvt, mvt_to_json};
+use mvtcurl::{LatLon, PredefinedLocation, TileCoord, fetch_mvt, mvt_to_json};
+
+/// Web メルカトルで表現できる緯度の上限
+const MAX_LATITUDE: f64 = 85.051_128_78;
 
 #[derive(Parser)]
 #[command(name = "mvtcurl")]
@@ -28,6 +31,24 @@ struct Cli {
     fuji: bool,
 
     #[arg(
+        long,
+        allow_negative_numbers = true,
+        requires_all = ["longitude", "zoom"],
+        conflicts_with_all = ["x", "y", "tokyo", "fuji"],
+        help = "Latitude for tile calculation (requires --longitude and --zoom)"
+    )]
+    latitude: Option<f64>,
+
+    #[arg(
+        long,
+        allow_negative_numbers = true,
+        requires_all = ["latitude", "zoom"],
+        conflicts_with_all = ["x", "y", "tokyo", "fuji"],
+        help = "Longitude for tile calculation (requires --latitude and --zoom)"
+    )]
+    longitude: Option<f64>,
+
+    #[arg(
         short = 'H',
         long = "header",
         help = "Add custom HTTP header (format: 'Name: Value')"
@@ -49,7 +70,19 @@ fn build_url(cli: &Cli) -> Result<String> {
         cli.zoom.unwrap_or(0)
     };
 
-    let tile_coord = if cli.tokyo {
+    let tile_coord = if let (Some(lat), Some(lon)) = (cli.latitude, cli.longitude) {
+        if !(-MAX_LATITUDE..=MAX_LATITUDE).contains(&lat) {
+            anyhow::bail!(
+                "--latitude must be between -{} and {}",
+                MAX_LATITUDE,
+                MAX_LATITUDE
+            );
+        }
+        if !(-180.0..=180.0).contains(&lon) {
+            anyhow::bail!("--longitude must be between -180 and 180");
+        }
+        LatLon::new(lat, lon).to_tile_coord(zoom)
+    } else if cli.tokyo {
         let location = PredefinedLocation::TokyoStation;
         location.coordinates().to_tile_coord(zoom)
     } else if cli.fuji {
