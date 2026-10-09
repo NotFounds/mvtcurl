@@ -116,6 +116,37 @@ mvtcurl "https://example.com/tiles/14/14551/6449.mvt" -o tile.json
 mvtcurl "https://example.com/tiles/14/14551/6449.mvt" --raw -o tile.mvt
 ```
 
+### レイヤーを絞り込む
+
+```bash
+# road レイヤーだけを出力（複数回指定可）
+mvtcurl "https://example.com/tiles/14/14551/6449.mvt" --layer road --layer building
+```
+
+存在しないレイヤー名を指定するとエラー終了し、タイルに含まれるレイヤー名の一覧を表示します。
+
+### タイルの概要を表示
+
+```bash
+# レイヤーごとの地物数・ジオメトリ種別ごとの件数・属性キーの一覧を表示
+mvtcurl "https://example.com/tiles/14/14551/6449.mvt" --summary
+```
+
+```json
+{
+  "layers": [
+    {
+      "name": "road",
+      "features": 3,
+      "geometry_types": { "LineString": 2, "Point": 1 },
+      "keys": ["class", "name", "oneway"]
+    }
+  ]
+}
+```
+
+`--layer` と組み合わせると、絞り込んだレイヤーだけを集計します。
+
 ### リクエスト・レスポンスの詳細を表示
 
 ```bash
@@ -138,6 +169,8 @@ mvtcurl "https://example.com/tiles/14/14551/6449.mvt" -v
 | `--header` | `-H` | カスタムHTTPヘッダーを追加（形式: `'Name: Value'`） |
 | `--output` | `-o` | 標準出力の代わりにファイルへ書き出す |
 | `--raw` | - | JSON に変換せず MVT バイナリ（gzip 展開済み）を出力（`--compact` とは併用不可） |
+| `--layer` | `-l` | 指定したレイヤーだけを出力（複数回指定可、`--raw` とは併用不可） |
+| `--summary` | - | レイヤーごとの地物数・ジオメトリ種別ごとの件数・属性キーの一覧を出力（`--raw` とは併用不可） |
 | `--verbose` | `-v` | リクエスト・レスポンスの詳細を標準エラー出力に表示 |
 
 

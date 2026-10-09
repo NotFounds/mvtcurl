@@ -28,6 +28,22 @@ struct Cli {
     )]
     raw: bool,
 
+    #[arg(
+        short,
+        long = "layer",
+        value_name = "NAME",
+        conflicts_with = "raw",
+        help = "Output only the named layer (can be repeated)"
+    )]
+    layers: Vec<String>,
+
+    #[arg(
+        long,
+        conflicts_with = "raw",
+        help = "Output feature counts, geometry types and property keys per layer instead of features"
+    )]
+    summary: bool,
+
     #[arg(short, long, help = "Write output to FILE instead of stdout")]
     output: Option<PathBuf>,
 
@@ -141,6 +157,14 @@ fn read_input(url: &str, cli: &Cli) -> Result<Vec<u8>> {
     fetch_mvt(url, &cli.headers, cli.verbose)
 }
 
+fn to_json<T: serde::Serialize>(value: &T, compact: bool) -> Result<String> {
+    Ok(if compact {
+        serde_json::to_string(value)?
+    } else {
+        serde_json::to_string_pretty(value)?
+    })
+}
+
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
@@ -165,11 +189,14 @@ fn main() -> Result<()> {
     let output = if cli.raw {
         data
     } else {
-        let tile_data = mvt_to_json(&data)?;
-        let mut json = if cli.compact {
-            serde_json::to_string(&tile_data)?
+        let mut tile_data = mvt_to_json(&data)?;
+        if !cli.layers.is_empty() {
+            tile_data = tile_data.filter_layers(&cli.layers)?;
+        }
+        let mut json = if cli.summary {
+            to_json(&tile_data.summary(), cli.compact)?
         } else {
-            serde_json::to_string_pretty(&tile_data)?
+            to_json(&tile_data, cli.compact)?
         };
         json.push('\n');
         json.into_bytes()

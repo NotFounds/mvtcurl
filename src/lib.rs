@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use prost::Message;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::io::Read;
 
 mod vector_tile {
@@ -116,6 +116,71 @@ pub struct Layer {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TileData {
     pub layers: Vec<Layer>,
+}
+
+impl TileData {
+    /// 指定した名前のレイヤーだけを残す
+    ///
+    /// # Errors
+    /// タイルに存在しないレイヤー名が含まれている場合
+    pub fn filter_layers(self, names: &[String]) -> Result<TileData> {
+        let missing: Vec<&str> = names
+            .iter()
+            .filter(|name| !self.layers.iter().any(|layer| &layer.name == *name))
+            .map(String::as_str)
+            .collect();
+        if !missing.is_empty() {
+            let available: Vec<&str> = self.layers.iter().map(|l| l.name.as_str()).collect();
+            anyhow::bail!(
+                "Layer not found: {}. Available layers: {}",
+                missing.join(", "),
+                available.join(", ")
+            );
+        }
+        let layers = self
+            .layers
+            .into_iter()
+            .filter(|layer| names.contains(&layer.name))
+            .collect();
+        Ok(TileData { layers })
+    }
+
+    pub fn summary(&self) -> TileSummary {
+        let layers = self
+            .layers
+            .iter()
+            .map(|layer| {
+                let mut geometry_types = BTreeMap::new();
+                let mut keys = BTreeSet::new();
+                for feature in &layer.features {
+                    *geometry_types
+                        .entry(feature.geometry.type_.clone())
+                        .or_insert(0) += 1;
+                    keys.extend(feature.properties.keys().cloned());
+                }
+                LayerSummary {
+                    name: layer.name.clone(),
+                    features: layer.features.len(),
+                    geometry_types,
+                    keys,
+                }
+            })
+            .collect();
+        TileSummary { layers }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct LayerSummary {
+    pub name: String,
+    pub features: usize,
+    pub geometry_types: BTreeMap<String, usize>,
+    pub keys: BTreeSet<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct TileSummary {
+    pub layers: Vec<LayerSummary>,
 }
 
 /// MVTタイルをフェッチして、生のバイト列として返す
