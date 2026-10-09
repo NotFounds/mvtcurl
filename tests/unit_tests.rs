@@ -145,3 +145,90 @@ fn test_fetch_mvt_fails_on_http_error_status() {
     let err = fetch_mvt(&url, &[], false).unwrap_err();
     assert!(err.to_string().contains("404"), "{}", err);
 }
+
+fn feature(geometry_type: &str, keys: &[&str]) -> GeoJsonFeature {
+    GeoJsonFeature {
+        type_: "Feature".to_string(),
+        id: None,
+        geometry: GeoJsonGeometry {
+            type_: geometry_type.to_string(),
+            coordinates: serde_json::json!([]),
+        },
+        properties: keys
+            .iter()
+            .map(|k| (k.to_string(), serde_json::Value::Null))
+            .collect(),
+    }
+}
+
+fn layer(name: &str, features: Vec<GeoJsonFeature>) -> Layer {
+    Layer {
+        name: name.to_string(),
+        extent: DEFAULT_EXTENT,
+        version: 2,
+        features,
+    }
+}
+
+fn sample_tile() -> TileData {
+    TileData {
+        layers: vec![
+            layer(
+                "road",
+                vec![
+                    feature("LineString", &["name", "class"]),
+                    feature("LineString", &["class", "oneway"]),
+                    feature("Point", &[]),
+                ],
+            ),
+            layer("building", vec![feature("Polygon", &["height"])]),
+            layer("water", vec![]),
+        ],
+    }
+}
+
+#[test]
+fn test_filter_layers_keeps_only_named_layers_in_tile_order() {
+    let names = vec!["water".to_string(), "road".to_string()];
+    let tile = sample_tile().filter_layers(&names).unwrap();
+    let kept: Vec<&str> = tile.layers.iter().map(|l| l.name.as_str()).collect();
+    assert_eq!(kept, vec!["road", "water"]);
+}
+
+#[test]
+fn test_filter_layers_fails_on_unknown_layer() {
+    let names = vec!["road".to_string(), "poi".to_string()];
+    let err = sample_tile().filter_layers(&names).unwrap_err().to_string();
+    assert!(err.contains("poi"), "{}", err);
+    assert!(err.contains("road, building, water"), "{}", err);
+}
+
+#[test]
+fn test_summary_counts_features_geometry_types_and_keys() {
+    let summary = sample_tile().summary();
+    assert_eq!(
+        serde_json::to_value(&summary).unwrap(),
+        serde_json::json!({
+            "layers": [
+                {
+                    "name": "road",
+                    "features": 3,
+                    "geometry_types": {"LineString": 2, "Point": 1},
+                    "keys": ["class", "name", "oneway"]
+                },
+                {
+                    "name": "building",
+                    "features": 1,
+                    "geometry_types": {"Polygon": 1},
+                    "keys": ["height"]
+                },
+                {
+                    "name": "water",
+                    "features": 0,
+                    "geometry_types": {},
+                    "keys": []
+                }
+            ]
+        })
+    );
+}
