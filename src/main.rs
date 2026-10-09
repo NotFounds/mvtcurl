@@ -1,6 +1,10 @@
 use anyhow::{Context, Result};
 use clap::Parser;
-use mvtcurl::{LatLon, PredefinedLocation, TileCoord, fetch_mvt, mvt_to_json};
+use mvtcurl::{
+    LatLon, PredefinedLocation, TileCoord, decompress_if_gzipped, fetch_mvt, mvt_to_json,
+};
+use std::io::{IsTerminal, Read, Write};
+use std::path::PathBuf;
 
 /// Web メルカトルで表現できる緯度の上限
 const MAX_LATITUDE: f64 = 85.051_128_78;
@@ -9,11 +13,26 @@ const MAX_LATITUDE: f64 = 85.051_128_78;
 #[command(name = "mvtcurl")]
 #[command(about = "Fetch MVT (Mapbox Vector Tile) and convert to JSON", long_about = None)]
 struct Cli {
-    #[arg(help = "URL of the MVT tile to fetch (supports {z}/{x}/{y} placeholders)")]
+    #[arg(
+        help = "URL of the MVT tile to fetch (supports {z}/{x}/{y} placeholders). Use file://PATH for a local file or - for stdin"
+    )]
     url: String,
 
     #[arg(short, long, help = "Output compact JSON instead of pretty-printed")]
     compact: bool,
+
+    #[arg(
+        long,
+        conflicts_with = "compact",
+        help = "Output the MVT binary (gzip decompressed) instead of JSON"
+    )]
+    raw: bool,
+
+    #[arg(short, long, help = "Write output to FILE instead of stdout")]
+    output: Option<PathBuf>,
+
+    #[arg(short, long, help = "Print request/response details to stderr")]
+    verbose: bool,
 
     #[arg(short = 'z', long, help = "Zoom level for {z} placeholder")]
     zoom: Option<u32>,
@@ -101,20 +120,68 @@ fn build_url(cli: &Cli) -> Result<String> {
     Ok(url)
 }
 
+/// URL のスキームに応じて HTTP・ファイル・標準入力のいずれかから読み込む
+fn read_input(url: &str, cli: &Cli) -> Result<Vec<u8>> {
+    if url == "-" {
+        if cli.verbose {
+            eprintln!("* Reading from stdin");
+        }
+        let mut data = Vec::new();
+        std::io::stdin()
+            .read_to_end(&mut data)
+            .context("Failed to read from stdin")?;
+        return Ok(data);
+    }
+    if let Some(path) = url.strip_prefix("file://") {
+        if cli.verbose {
+            eprintln!("* Reading file {}", path);
+        }
+        return std::fs::read(path).with_context(|| format!("Failed to read file: {}", path));
+    }
+    fetch_mvt(url, &cli.headers, cli.verbose)
+}
+
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
-    let url = build_url(&cli)?;
-    let data = fetch_mvt(&url, &cli.headers)?;
-    let tile_data = mvt_to_json(&data)?;
+    if cli.raw && cli.output.is_none() && std::io::stdout().is_terminal() {
+        anyhow::bail!(
+            "Refusing to write binary output to a terminal. Use --output or redirect stdout"
+        );
+    }
 
-    let output = if cli.compact {
-        serde_json::to_string(&tile_data)?
+    let url = build_url(&cli)?;
+    let data = read_input(&url, &cli)?;
+    let received_len = data.len();
+    let data = decompress_if_gzipped(data)?;
+    if cli.verbose && data.len() != received_len {
+        eprintln!(
+            "* Decompressed gzip data ({} -> {} bytes)",
+            received_len,
+            data.len()
+        );
+    }
+
+    let output = if cli.raw {
+        data
     } else {
-        serde_json::to_string_pretty(&tile_data)?
+        let tile_data = mvt_to_json(&data)?;
+        let mut json = if cli.compact {
+            serde_json::to_string(&tile_data)?
+        } else {
+            serde_json::to_string_pretty(&tile_data)?
+        };
+        json.push('\n');
+        json.into_bytes()
     };
 
-    println!("{}", output);
+    match &cli.output {
+        Some(path) => std::fs::write(path, &output)
+            .with_context(|| format!("Failed to write output file: {}", path.display()))?,
+        None => std::io::stdout()
+            .write_all(&output)
+            .context("Failed to write to stdout")?,
+    }
 
     Ok(())
 }

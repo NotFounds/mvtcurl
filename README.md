@@ -10,6 +10,9 @@
 - URL から MVT タイルを取得
 - タイル座標のプレースホルダー対応（`{z}/{x}/{y}`）
 - HTTP ヘッダーの追加可能
+- ローカルファイル（`file://`）・標準入力（`-`）からの読み込み
+- gzip 圧縮されたタイルの自動展開
+- HTTP ステータスが 2xx 以外の場合はエラー終了
 
 ## インストール
 
@@ -93,6 +96,33 @@ mvtcurl "https://example.com/tiles/14/14551/6449.mvt" \
   --header "User-Agent: MyApp/1.0"
 ```
 
+### ローカルファイル・標準入力から読み込む
+
+```bash
+# ローカルファイル（gzip 圧縮されていても自動で展開）
+mvtcurl "file:///path/to/tiles/{z}/{x}/{y}.pbf" -z 14 -x 14551 -y 6449
+
+# 標準入力
+cat tile.mvt | mvtcurl -
+```
+
+### 出力先・出力形式
+
+```bash
+# JSON をファイルに保存
+mvtcurl "https://example.com/tiles/14/14551/6449.mvt" -o tile.json
+
+# JSON に変換せず MVT バイナリ（gzip 展開済み）を保存
+mvtcurl "https://example.com/tiles/14/14551/6449.mvt" --raw -o tile.mvt
+```
+
+### リクエスト・レスポンスの詳細を表示
+
+```bash
+# 送信したリクエストと受け取ったレスポンスのヘッダーを標準エラー出力に表示
+mvtcurl "https://example.com/tiles/14/14551/6449.mvt" -v
+```
+
 ## オプション
 
 | オプション | 短縮形 | 説明 |
@@ -106,6 +136,9 @@ mvtcurl "https://example.com/tiles/14/14551/6449.mvt" \
 | `--longitude` | - | 経度を指定（`--latitude`・`--zoom` 必須） |
 | `--compact` | `-c` | コンパクトなJSON出力 |
 | `--header` | `-H` | カスタムHTTPヘッダーを追加（形式: `'Name: Value'`） |
+| `--output` | `-o` | 標準出力の代わりにファイルへ書き出す |
+| `--raw` | - | JSON に変換せず MVT バイナリ（gzip 展開済み）を出力（`--compact` とは併用不可） |
+| `--verbose` | `-v` | リクエスト・レスポンスの詳細を標準エラー出力に表示 |
 
 
 ### 事前定義座標

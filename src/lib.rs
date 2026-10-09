@@ -2,6 +2,7 @@ use anyhow::{Context, Result};
 use prost::Message;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::io::Read;
 
 mod vector_tile {
     include!(concat!(env!("OUT_DIR"), "/vector_tile.rs"));
@@ -122,10 +123,12 @@ pub struct TileData {
 /// # Arguments
 /// * `url` - MVTタイルのURL
 /// * `headers` - カスタムHTTPヘッダーのリスト（"Name: Value"形式）
+/// * `verbose` - リクエストとレスポンスのヘッダーを標準エラー出力に表示する
 ///
 /// # Errors
-/// HTTPリクエストが失敗した場合やレスポンスの読み取りに失敗した場合
-pub fn fetch_mvt(url: &str, headers: &[String]) -> Result<Vec<u8>> {
+/// HTTPリクエストが失敗した場合、ステータスコードが 2xx 以外の場合、
+/// レスポンスの読み取りに失敗した場合
+pub fn fetch_mvt(url: &str, headers: &[String], verbose: bool) -> Result<Vec<u8>> {
     let client = reqwest::blocking::Client::new();
     let mut request = client.get(url);
 
@@ -143,12 +146,47 @@ pub fn fetch_mvt(url: &str, headers: &[String]) -> Result<Vec<u8>> {
         }
     }
 
-    let response = request
-        .send()
-        .context("Failed to fetch URL")?
-        .bytes()
-        .context("Failed to read response body")?;
-    Ok(response.to_vec())
+    let request = request.build().context("Failed to build request")?;
+    if verbose {
+        eprintln!("> {} {}", request.method(), request.url());
+        for (name, value) in request.headers() {
+            eprintln!("> {}: {}", name, value.to_str().unwrap_or("<binary>"));
+        }
+    }
+
+    let response = client.execute(request).context("Failed to fetch URL")?;
+    let status = response.status();
+    if verbose {
+        eprintln!("< {:?} {}", response.version(), status);
+        for (name, value) in response.headers() {
+            eprintln!("< {}: {}", name, value.to_str().unwrap_or("<binary>"));
+        }
+    }
+    if !status.is_success() {
+        anyhow::bail!("HTTP request failed with status {}", status);
+    }
+
+    let body = response.bytes().context("Failed to read response body")?;
+    Ok(body.to_vec())
+}
+
+/// gzip 圧縮されていれば展開し、そうでなければそのまま返す
+///
+/// MBTiles や S3 から配信されるタイルは Content-Encoding ヘッダー無しで
+/// gzip のまま届くことがあるため、先頭のマジックバイトで判定する。
+/// MVT の protobuf は先頭が 0x1f 0x8b になることはないので誤判定しない。
+///
+/// # Errors
+/// gzip の展開に失敗した場合
+pub fn decompress_if_gzipped(data: Vec<u8>) -> Result<Vec<u8>> {
+    if !data.starts_with(&[0x1f, 0x8b]) {
+        return Ok(data);
+    }
+    let mut decompressed = Vec::new();
+    flate2::read::GzDecoder::new(data.as_slice())
+        .read_to_end(&mut decompressed)
+        .context("Failed to decompress gzip data")?;
+    Ok(decompressed)
 }
 
 /// ジグザグエンコーディングをデコード
