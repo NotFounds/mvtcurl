@@ -102,7 +102,9 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
-          files: release/*.{tar.gz,zip}
+          files: |
+            release/*.tar.gz
+            release/*.zip
           draft: false
           prerelease: false
           generate_release_notes: true
