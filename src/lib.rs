@@ -67,7 +67,8 @@ impl LatLon {
         let y = ((1.0 - (lat_rad.tan() + (1.0 / lat_rad.cos())).ln() / std::f64::consts::PI) / 2.0
             * n)
             .floor() as u32;
-        TileCoord::new(zoom, x, y)
+        let max = n as u32 - 1;
+        TileCoord::new(zoom, x.min(max), y.min(max))
     }
 }
 
